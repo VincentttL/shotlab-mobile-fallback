@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Shot Physics Lab — Interactive Basketball Experiment Bench</title>
+  <link rel="preconnect" href="https://esm.sh" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #071019;
+      --panel: rgba(9, 18, 30, 0.78);
+      --panel-strong: rgba(9, 18, 30, 0.92);
+      --ink: #f5efe4;
+      --muted: #9fb0c2;
+      --line: rgba(255,255,255,.14);
+      --orange: #ff9f43;
+      --cyan: #60d8ff;
+      --green: #7cf7a1;
+      --red: #ff6b6b;
+      --purple: #b59cff;
+      --shadow: 0 18px 60px rgba(0,0,0,.42);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink); font-family: Inter, system-ui, sans-serif; }
+    body::before {
+      content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 2;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(255,159,67,.18), transparent 34%),
+        radial-gradient(circle at 78% 24%, rgba(96,216,255,.13), transparent 35%),
+        linear-gradient(180deg, rgba(255,255,255,.035), transparent 22%, rgba(0,0,0,.25));
+      mix-blend-mode: screen;
+    }
+    body::after {
+      content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 3; opacity: .16;
+      background-image: linear-gradient(rgba(255,255,255,.18) 1px, transparent 1px);
+      background-size: 100% 3px;
+    }
+    #app { position: relative; width: 100%; height: 100%; }
+    #three { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    .hud { position: fixed; inset: 16px; z-index: 4; display: grid; grid-template-columns: minmax(280px, 380px) 1fr minmax(290px, 380px); gap: 14px; pointer-events: none; }
+    .panel { pointer-events: auto; border: 1px solid var(--line); background: var(--panel); box-shadow: var(--shadow); backdrop-filter: blur(16px); border-radius: 24px; overflow: hidden; }
+    .left, .right { align-self: start; max-height: calc(100vh - 32px); overflow: auto; }
+    .topbar { grid-column: 2; align-self: start; justify-self: center; width: min(760px, 100%); padding: 14px 16px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .brand { display: flex; gap: 12px; align-items: center; min-width: 0; }
+    .brand-mark { width: 42px; height: 42px; border-radius: 14px; background: radial-gradient(circle at 35% 30%, #ffd29a, #f28a2e 45%, #7b2e00 100%); box-shadow: inset -7px -8px 18px rgba(0,0,0,.28), 0 0 34px rgba(255,159,67,.28); position: relative; flex: 0 0 auto; }
+    .brand-mark::before, .brand-mark::after { content: ""; position: absolute; inset: 8px 3px; border: 1.5px solid rgba(70,31,4,.56); border-left: none; border-right: none; border-radius: 50%; transform: rotate(28deg); }
+    .brand h1 { margin: 0; font-size: 18px; line-height: 1.05; letter-spacing: -.03em; }
+    .brand p { margin: 3px 0 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: min(520px, 62vw); }
+    .pill { font-family: 'JetBrains Mono', monospace; color: var(--green); font-size: 11px; border: 1px solid rgba(124,247,161,.3); background: rgba(124,247,161,.08); padding: 7px 10px; border-radius: 999px; }
+    .section { padding: 16px; border-bottom: 1px solid var(--line); }
+    .section:last-child { border-bottom: none; }
+    .label { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); margin: 14px 0 7px; }
+    .label strong { color: var(--ink); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+    input[type="range"] { width: 100%; accent-color: var(--orange); }
+    .stations { display: grid; gap: 8px; }
+    .station { appearance: none; border: 1px solid var(--line); background: rgba(255,255,255,.045); color: var(--ink); border-radius: 14px; padding: 11px 12px; text-align: left; cursor: pointer; display: grid; grid-template-columns: auto 1fr; gap: 9px; align-items: center; transition: .18s ease; }
+    .station:hover { border-color: rgba(255,159,67,.5); transform: translateY(-1px); }
+    .station.active { background: rgba(255,159,67,.13); border-color: rgba(255,159,67,.64); box-shadow: 0 0 0 1px rgba(255,159,67,.16) inset; }
+    .station b { display: block; font-size: 13px; }
+    .station span { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .badge { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--cyan); }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+    button.action { border: none; color: #1c1003; background: linear-gradient(135deg, #ffd48f, var(--orange)); padding: 12px 12px; border-radius: 14px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 28px rgba(255,159,67,.23); }
+    button.action.secondary { background: rgba(255,255,255,.08); color: var(--ink); border: 1px solid var(--line); box-shadow: none; }
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .metric { border: 1px solid var(--line); background: rgba(255,255,255,.05); border-radius: 16px; padding: 11px; }
+    .metric .k { color: var(--muted); font-size: 11px; }
+    .metric .v { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; margin-top: 5px; }
+    .metric.good .v { color: var(--green); }
+    .metric.warn .v { color: var(--orange); }
+    .metric.bad .v { color: var(--red); }
+    .shot-verdict { display: flex; gap: 14px; align-items: center; }
+    .verdict-flag { flex: 0 0 auto; min-width: 96px; text-align: center; padding: 13px 10px; border-radius: 16px; border: 1px solid var(--line); font: 800 25px/1 Inter, system-ui, sans-serif; letter-spacing: -.02em; transition: color .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease; }
+    .verdict-body { min-width: 0; }
+    .verdict-eyebrow { font: 700 10px 'JetBrains Mono', monospace; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+    .verdict-headline { margin-top: 3px; font: 700 14px Inter, system-ui, sans-serif; color: var(--ink); line-height: 1.3; }
+    .verdict-hint { margin-top: 4px; font-size: 12px; line-height: 1.42; color: #d7e1ed; }
+    .shot-verdict[data-tone="make"] .verdict-flag { color: var(--green); background: rgba(124,247,161,.13); border-color: rgba(124,247,161,.52); box-shadow: 0 0 0 1px rgba(124,247,161,.16) inset, 0 0 30px rgba(124,247,161,.16); }
+    .shot-verdict[data-tone="edge"] .verdict-flag { color: var(--orange); background: rgba(255,159,67,.13); border-color: rgba(255,159,67,.52); box-shadow: 0 0 0 1px rgba(255,159,67,.16) inset, 0 0 30px rgba(255,159,67,.12); }
+    .shot-verdict[data-tone="miss"] .verdict-flag { color: var(--red); background: rgba(255,107,107,.13); border-color: rgba(255,107,107,.52); box-shadow: 0 0 0 1px rgba(255,107,107,.16) inset, 0 0 30px rgba(255,107,107,.12); }
+    .note h2 { margin: 0 0 8px; font-size: 17px; letter-spacing: -.03em; }
+    .note p { margin: 0; color: #d7e1ed; line-height: 1.55; font-size: 13px; }
+    .equation { margin-top: 12px; padding: 12px; border-radius: 14px; background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.1); color: #f7d7a5; font-size: 12px; line-height: 1.55; overflow: auto; }
+    .equation.math-equation { font-family: Inter, system-ui, sans-serif; color: #ffe2b2; }
+    .math-line { margin: 4px 0; }
+    .math-line math { font-family: STIX Two Math, Cambria Math, Times New Roman, serif; font-size: 16px; line-height: 1.3; max-width: 100%; }
+    .math-line mi { color: #ffe2b2; }
+    .math-line mo { color: #f7d7a5; padding-inline: 2px; }
+    .chart-wrap { height: 255px; padding: 12px; }
+    #labCanvas { width: 100%; height: 230px; display: block; border-radius: 16px; background: rgba(0,0,0,.24); border: 1px solid var(--line); }
+    #firewallChart { width: 100% !important; height: 230px !important; }
+    .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; color: var(--muted); font-size: 11px; }
+    .dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; margin-right: 5px; }
+    .source-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .source-card { min-height: 66px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.045); color: var(--muted); font-size: 11px; line-height: 1.35; }
+    .source-card b { color: var(--ink); display: block; margin-bottom: 3px; }
+    .scope { color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .whip-hint { color: var(--cyan); font-size: 11.5px; line-height: 1.45; margin: 2px 0 6px; }
+    .whip-hint em { color: var(--ink); font-style: normal; font-weight: 600; }
+    .demo-rail { background: linear-gradient(180deg, rgba(255,159,67,.09), rgba(255,159,67,0)); }
+    .demo-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
+    .demo-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+    .demo-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .03em; color: var(--orange); display: inline-flex; align-items: center; gap: 6px; }
+    .demo-next { appearance: none; cursor: pointer; border: 1px solid rgba(255,159,67,.55); background: rgba(255,159,67,.16); color: var(--ink); font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 7px 13px; border-radius: 999px; transition: .16s ease; }
+    .demo-next:hover { background: rgba(255,159,67,.26); transform: translateY(-1px); }
+    .demo-beat { margin: 8px 0 9px; padding: 7px 9px; border: 1px solid rgba(96,216,255,.22); border-radius: 11px; background: rgba(96,216,255,.075); color: var(--cyan); font: 700 11px/1.3 'JetBrains Mono', monospace; letter-spacing: .02em; }
+    .demo-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .chip { appearance: none; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--ink); font: 600 12px Inter, sans-serif; padding: 7px 11px 7px 7px; border-radius: 999px; transition: .16s ease; }
+    .chip:hover { border-color: rgba(255,159,67,.5); transform: translateY(-1px); }
+    .chip b { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 999px; background: rgba(255,159,67,.16); color: var(--orange); font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; }
+    .chip.active { background: rgba(255,159,67,.15); border-color: rgba(255,159,67,.65); box-shadow: 0 0 0 1px rgba(255,159,67,.16) inset; }
+    .chip.active b { background: var(--orange); color: #1c1003; }
+    .form-modes { display: flex; flex-wrap: wrap; gap: 7px; margin: 8px 0 10px; }
+    .form-mode { appearance: none; cursor: pointer; border: 1px solid rgba(96,216,255,.28); background: rgba(96,216,255,.065); color: var(--ink); font: 700 11px/1.15 'JetBrains Mono', monospace; padding: 7px 9px; border-radius: 999px; transition: .16s ease; }
+    .form-mode:hover { border-color: rgba(96,216,255,.58); transform: translateY(-1px); }
+    .form-mode.active { background: rgba(96,216,255,.18); border-color: rgba(96,216,255,.72); color: var(--cyan); box-shadow: 0 0 0 1px rgba(96,216,255,.16) inset; }
+    .form-mode.trace-mode { border-color: rgba(124,247,161,.38); background: rgba(124,247,161,.075); color: #dfffea; }
+    .form-mode.trace-mode.active { border-color: rgba(124,247,161,.82); background: rgba(124,247,161,.18); color: var(--green); }
+    .data-layer-toggle { appearance: none; cursor: pointer; border: 1px solid rgba(124,247,161,.42); background: rgba(124,247,161,.075); color: #dfffea; font: 700 11px/1.15 'JetBrains Mono', monospace; padding: 7px 10px; border-radius: 999px; transition: .16s ease; }
+    .data-layer-toggle:hover { border-color: rgba(124,247,161,.72); transform: translateY(-1px); }
+    .data-layer-toggle.active { background: rgba(124,247,161,.18); border-color: rgba(124,247,161,.82); color: var(--green); box-shadow: 0 0 0 1px rgba(124,247,161,.16) inset; }
+    .rail-noise-presets { margin-top: 10px; display: grid; gap: 8px; }
+    .noise-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+    .noise-preset { appearance: none; cursor: pointer; border: 1px solid rgba(96,216,255,.28); background: rgba(96,216,255,.065); color: var(--ink); font: 700 11px/1.15 'JetBrains Mono', monospace; padding: 8px 9px; border-radius: 12px; transition: .16s ease; text-align: left; }
+    .noise-preset:hover { border-color: rgba(96,216,255,.58); transform: translateY(-1px); }
+    .noise-preset.active { background: rgba(96,216,255,.18); border-color: rgba(96,216,255,.72); color: var(--cyan); box-shadow: 0 0 0 1px rgba(96,216,255,.16) inset; }
+    .rail-spl-layer { margin-top: 10px; display: grid; gap: 8px; }
+    .rail-spl-layer .whip-hint { margin: 0; }
+    .force-line-tape { margin: 9px 0 4px; padding: 10px 11px; border: 1px solid rgba(96,216,255,.26); border-radius: 14px; background: rgba(96,216,255,.075); }
+    .force-line-tape[hidden] { display: none; }
+    .force-line-tape-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; color: #d7e1ed; font-size: 11px; line-height: 1.25; }
+    .force-line-tape-head b { color: var(--green); font: 800 12px/1 'JetBrains Mono', monospace; letter-spacing: .03em; }
+    .force-line-tape.miss .force-line-tape-head b { color: var(--red); }
+    .force-line-track { position: relative; height: 22px; margin: 8px 4px 5px; border-radius: 999px; background: linear-gradient(90deg, rgba(255,107,107,.36), rgba(124,247,161,.24) 31%, rgba(124,247,161,.34) 50%, rgba(124,247,161,.24) 69%, rgba(255,107,107,.36)); border: 1px solid rgba(255,255,255,.12); }
+    .force-line-track::before { content: ""; position: absolute; top: -4px; bottom: -4px; left: 50%; width: 1px; background: rgba(245,239,228,.56); }
+    .force-line-track .edge { position: absolute; top: 5px; color: rgba(245,239,228,.76); font: 700 9px/1 'JetBrains Mono', monospace; text-transform: uppercase; }
+    .force-line-track .edge.left { left: 32px; }
+    .force-line-track .edge.right { right: 32px; }
+    .force-line-marker { position: absolute; top: 50%; left: 50%; width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; border-radius: 999px; background: var(--green); box-shadow: 0 0 16px rgba(124,247,161,.72); transition: left .14s ease, background .14s ease, box-shadow .14s ease; }
+    .force-line-tape.miss .force-line-marker { background: var(--red); box-shadow: 0 0 18px rgba(255,107,107,.72); }
+    .force-line-tape p { margin: 0; color: var(--muted); font-size: 10.5px; line-height: 1.35; }
+    .rail-force-line-tape { margin-top: 10px; margin-bottom: 0; }
+    .right.trace-active { display: flex; flex-direction: column; }
+    .right.trace-active .shot-verdict { order: -1; }
+    .right.trace-active .metrics { order: 0; }
+    .right.trace-active .chart-wrap { order: 1; }
+    .right.trace-active .note { order: 2; }
+    .right.trace-active .source-strip { order: 3; }
+    .right.trace-active .scope { order: 4; }
+    .right.trace-active .form-feedback { font-size: 11.5px; line-height: 1.35; }
+    .form-feedback { margin-top: 12px; padding: 12px; border: 1px solid rgba(96,216,255,.24); border-radius: 14px; background: rgba(96,216,255,.075); color: #d7e1ed; font-size: 12px; line-height: 1.45; }
+    .form-feedback b { color: var(--cyan); display: block; margin-bottom: 5px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .03em; text-transform: uppercase; }
+    .demo-caption { margin: 11px 2px 0; color: #d7e1ed; font-size: 12px; line-height: 1.5; min-height: 32px; }
+    .demo-caption em { color: var(--ink); font-style: normal; font-weight: 600; }
+    .first-gesture-cue { display: flex; align-items: center; gap: 6px; width: max-content; max-width: 100%; margin: 6px 0 5px; padding: 5px 9px; border: 1px solid rgba(96,216,255,.42); border-radius: 999px; background: rgba(96,216,255,.12); color: var(--cyan); font: 700 11px/1 'JetBrains Mono', monospace; box-shadow: 0 0 0 0 rgba(96,216,255,.28); animation: cuePulse 1.25s ease-in-out infinite; }
+    .first-gesture-cue::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: var(--orange); box-shadow: 0 0 12px rgba(255,159,67,.62); }
+    .first-gesture-cue[hidden] { display: none; }
+    input.first-gesture-target { filter: drop-shadow(0 0 10px rgba(96,216,255,.48)); }
+    @keyframes cuePulse {
+      0%, 100% { transform: translateX(0); box-shadow: 0 0 0 0 rgba(96,216,255,.22); }
+      50% { transform: translateX(4px); box-shadow: 0 0 0 5px rgba(96,216,255,0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .first-gesture-cue { animation: none; }
+    }
+    .left.form-active { display: flex; flex-direction: column; }
+    .left.form-active .demo-rail { order: 0; }
+    .left.form-active .control-section { order: 1; }
+    .left.form-active .station-section { order: 2; }
+    .left.form-active .actions { margin-top: 10px; }
+    .mobile-hint { display: none; }
+
+
+    /* Claude Design pass: presentation-first hierarchy + touch/mobile affordances. */
+    html { -webkit-text-size-adjust: 100%; }
+    button, input { font: inherit; }
+    .top-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .top-tool { appearance: none; min-height: 36px; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; padding: 8px 11px; color: var(--ink); background: rgba(255,255,255,.065); cursor: pointer; font: 700 11px/1 'JetBrains Mono', monospace; letter-spacing: .01em; transition: .16s ease; }
+    .top-tool:hover { transform: translateY(-1px); border-color: rgba(255,159,67,.56); background: rgba(255,159,67,.12); }
+    .top-tool.primary { color: #1c1003; border-color: transparent; background: linear-gradient(135deg, #ffe0aa, var(--orange)); box-shadow: 0 12px 28px rgba(255,159,67,.2); }
+    .takeaway-card { background: linear-gradient(180deg, rgba(124,247,161,.105), rgba(96,216,255,.06)); border-bottom-color: rgba(124,247,161,.22); }
+    .takeaway-kicker { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 8px; color: var(--green); font: 800 10px/1 'JetBrains Mono', monospace; letter-spacing: .11em; text-transform: uppercase; }
+    .takeaway-kicker::before { content: ''; width: 7px; height: 7px; border-radius: 99px; background: var(--green); box-shadow: 0 0 14px rgba(124,247,161,.7); }
+    .takeaway-title { margin: 0 0 7px; font-size: clamp(18px, 2.1vw, 25px); line-height: 1.06; letter-spacing: -.045em; text-wrap: balance; }
+    .takeaway-body { margin: 0; color: #dff0ff; font-size: 13px; line-height: 1.46; }
+    .takeaway-step { margin-top: 10px; padding: 8px 10px; border: 1px solid rgba(255,159,67,.28); border-radius: 12px; background: rgba(255,159,67,.085); color: #ffe1b0; font: 700 11px/1.35 'JetBrains Mono', monospace; }
+    .control-group-title { margin: 15px 0 8px; color: var(--orange); font: 800 10px/1 'JetBrains Mono', monospace; letter-spacing: .11em; text-transform: uppercase; }
+    .control-section .label span { line-height: 1.25; }
+    input[type="range"] { min-height: 34px; touch-action: pan-y; }
+    input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: rgba(255,255,255,.16); }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; margin-top: -9px; border-radius: 999px; border: 2px solid rgba(255,255,255,.88); background: var(--orange); box-shadow: 0 0 0 7px rgba(255,159,67,.16), 0 8px 18px rgba(0,0,0,.28); }
+    input[type="range"]::-moz-range-track { height: 6px; border-radius: 999px; background: rgba(255,255,255,.16); }
+    input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; border-radius: 999px; border: 2px solid rgba(255,255,255,.88); background: var(--orange); box-shadow: 0 0 0 7px rgba(255,159,67,.16); }
+    .presentation-mode body, body.presentation-mode { overflow: hidden; }
+    body.presentation-mode::after { opacity: .06; }
+    body.presentation-mode .hud { grid-template-columns: minmax(250px, 330px) 1fr minmax(320px, 430px); gap: 12px; }
+    body.presentation-mode .station-section { display: none; }
+    body.presentation-mode .source-strip, body.presentation-mode .scope { display: none; }
+    body.presentation-mode .demo-rail { background: rgba(9,18,30,.72); }
+    body.presentation-mode .topbar { width: min(980px, 100%); }
+    body.presentation-mode .takeaway-title { font-size: clamp(22px, 2.8vw, 36px); }
+    body.presentation-mode .metrics .metric .v { font-size: 24px; }
+    body.presentation-mode #three { filter: saturate(1.08) contrast(1.05); }
+
+    @media (max-width: 1050px) {
+      html, body { min-height: 100%; height: auto; overflow-x: hidden; }
+      body { overflow-y: auto; }
+      #app { min-height: 100dvh; }
+      #three { position: fixed; z-index: 0; top: 98px; left: 0; right: 0; width: 100vw; height: min(46dvh, 520px); min-height: 330px; margin: 0; pointer-events: auto; }
+      .hud { position: relative; z-index: 4; inset: auto; min-height: 100dvh; padding: max(10px, env(safe-area-inset-top)) 10px max(18px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+      .panel, .section, .metric, .takeaway-card, .verdict-body { min-width: 0; max-width: 100%; }
+      .panel { pointer-events: auto; border-radius: 20px; }
+      .topbar { order: 0; position: sticky; top: max(8px, env(safe-area-inset-top)); z-index: 8; width: 100%; padding: 11px 12px; }
+      .brand, .brand > div:last-child { min-width: 0; }
+      .brand p { max-width: 100%; white-space: normal; }
+      .top-tools { width: 100%; justify-content: stretch; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .top-tool { min-height: 44px; padding-inline: 8px; }
+      .right { order: 1; margin-top: calc(min(46dvh, 520px) + 12px); max-height: none; overflow: visible; }
+      .left { order: 2; margin-top: 0; max-height: none; overflow: visible; }
+      .metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .metric { padding: 9px; }
+      .metric .v { font-size: clamp(15px, 3.3vw, 20px); }
+      .takeaway-title, .takeaway-body, .takeaway-step, .verdict-headline, .verdict-hint, .note p, .scope { overflow-wrap: anywhere; }
+      .shot-verdict { align-items: flex-start; }
+      .actions, .noise-presets { grid-template-columns: 1fr; }
+      .station-section { display: none; }
+      .chart-wrap { height: auto; }
+      #labCanvas, #firewallChart { height: 260px !important; }
+      .source-strip { grid-template-columns: 1fr; }
+      .pill { display: none; }
+    }
+    @media (max-width: 680px) {
+      .hud { width: 100vw; max-width: 100vw; overflow-x: hidden; padding-inline: 8px; }
+      .topbar, .left, .right, .panel { width: calc(100vw - 16px) !important; max-width: calc(100vw - 16px) !important; align-self: stretch; }
+      #three { top: 160px; height: 22dvh; min-height: 160px; }
+      .right { margin-top: 332px; }
+      .topbar { align-items: stretch; }
+      .brand { align-items: flex-start; }
+      .brand-mark { width: 34px; height: 34px; border-radius: 12px; }
+      .brand h1 { font-size: 16px; }
+      .top-tools { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: 1fr; }
+      .metric .k { white-space: normal; }
+      .shot-verdict { display: grid; grid-template-columns: 1fr; gap: 10px; }
+      .verdict-flag { width: max-content; max-width: 100%; min-width: 0; font-size: 19px; padding: 12px 14px; }
+      .verdict-headline, .verdict-hint, .takeaway-title, .takeaway-body { display: block; max-width: 100%; white-space: normal; word-break: normal; overflow-wrap: anywhere; }
+      .takeaway-title { font-size: 19px; line-height: 1.12; }
+      .takeaway-body { font-size: 12.5px; }
+      .takeaway-step { display: none; }
+      .section { padding: 13px; }
+      .demo-actions, .demo-chips, .form-modes { display: grid; grid-template-columns: 1fr; }
+      .label { align-items: baseline; font-size: 13px; }
+      input[type="range"] { min-height: 46px; }
+      input[type="range"]::-webkit-slider-thumb { width: 30px; height: 30px; margin-top: -12px; }
+      input[type="range"]::-moz-range-thumb { width: 30px; height: 30px; }
+      .source-strip, .scope { display: none; }
+    }
+
+  </style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="three"></canvas>
+    <div class="hud">
+      <aside class="panel left" id="controlsPanel">
+        <div class="section demo-rail">
+          <div class="demo-head">
+            <span class="demo-eyebrow">▶ 30-second guided demo</span>
+            <div class="demo-actions">
+              <button class="demo-next" id="formJump" title="Jump to the Form + Forces hand/force map">Form + Forces</button>
+              <button class="demo-next" id="demoNext" title="Play the next beat of the story">Next beat →</button>
+            </div>
+          </div>
+          <div class="demo-beat" id="demoBeat">Beat 0/5 · choose a chip</div>
+          <div class="demo-chips" id="demoChips">
+            <button class="chip" data-preset="swish"><b>1</b>Full chain swish</button>
+            <button class="chip" data-preset="wrist"><b>2</b>Wrist alone</button>
+            <button class="chip" data-preset="drift"><b>3</b>Tiny left drift</button>
+            <button class="chip" data-preset="pressure"><b>4</b>Game pressure</button>
+            <button class="chip" data-preset="eigen"><b>5</b>Eigen sweet spot</button>
+          </div>
+          <p class="demo-caption" id="demoCaption">Tap a chip — or hit <em>next</em> — to play the lab as a story: build speed, break the force-line, add pressure, then read the optimizer. No sliders required.</p>
+          <span class="first-gesture-cue" id="firstGestureCue" hidden>drag shoulder ↓</span>
+        </div>
+        <div class="section station-section">
+          <div class="stations" id="stations">
+            <button class="station active" data-station="geometry"><span class="badge">01</span><span><b>Geometry Lab</b><span>find the make ridge + optimum</span></span></button>
+            <button class="station" data-station="whip"><span class="badge">02</span><span><b>Kinetic Chain Lab</b><span>build the release with a whip</span></span></button>
+            <button class="station" data-station="force"><span class="badge">03</span><span><b>Force-Line Lab</b><span>feel why left drift matters</span></span></button>
+            <button class="station" data-station="noise"><span class="badge">04</span><span><b>Noise Lab</b><span>fire hundreds of imperfect releases</span></span></button>
+            <button class="station" data-station="eigen"><span class="badge">05</span><span><b>Eigen Lab</b><span>diagonalize the make sensitivity</span></span></button>
+            <button class="station" data-station="firewall"><span class="badge">06</span><span><b>Analogy Test</b><span>break the Heisenberg temptation</span></span></button>
+            <button class="station" data-station="form"><span class="badge">07</span><span><b>Form + Forces</b><span>map sliders to hand/form cues</span></span></button>
+          </div>
+          <div class="actions">
+            <button class="action" id="launchBtn">Shoot once</button>
+            <button class="action secondary" id="resetBtn">Reset to Curry preset</button>
+          </div>
+        </div>
+        <div class="section control-section">
+          <div class="control-group-title">Shot release</div>
+          <div id="aimRows">
+            <div class="label"><span>release angle θ</span><strong id="angleOut">50.7°</strong></div>
+            <input id="angle" type="range" min="42" max="62" step="0.1" value="50.7" />
+            <div class="label"><span>release speed v</span><strong id="speedOut">7.10 m/s</strong></div>
+            <input id="speed" type="range" min="5.8" max="8.8" step="0.01" value="7.10" />
+          </div>
+          <div id="whipRows" hidden>
+            <div class="whip-hint">θ and v are <em>built</em> here, not aimed. Crank each joint and watch the release.</div>
+            <div id="formModeRows" hidden>
+              <div class="whip-hint">Form modes are not simulated players — they are quick hand/form states to compare.</div>
+              <div class="form-modes">
+                <button class="form-mode" data-form-mode="chain">ground-up chain</button>
+                <button class="form-mode" data-form-mode="flat">flat palm push</button>
+                <button class="form-mode" data-form-mode="flick">wrist flick only</button>
+                <button class="form-mode trace-mode" data-form-mode="cmuFreeThrow">CMU free throw trace</button>
+              </div>
+              <div class="label"><span>backspin ω_spin</span><strong id="backspinOut">190 rpm</strong></div>
+              <input id="backspin" type="range" min="0" max="320" step="5" value="190" />
+            </div>
+            <div class="label"><span>shoulder rate ω₁</span><strong id="omShoulderOut">2.30 rad/s</strong></div>
+            <input id="omShoulder" type="range" min="0" max="6" step="0.05" value="2.30" />
+            <div class="label"><span>elbow rate ω₂</span><strong id="omElbowOut">4.30 rad/s</strong></div>
+            <input id="omElbow" type="range" min="0" max="9" step="0.05" value="4.30" />
+            <div class="label"><span>wrist rate ω₃</span><strong id="omWristOut">7.30 rad/s</strong></div>
+            <input id="omWrist" type="range" min="0" max="16" step="0.1" value="7.30" />
+            <div class="label"><span>legs + trunk base</span><strong id="omLegsOut">0.00 m/s</strong></div>
+            <input id="omLegs" type="range" min="0" max="3" step="0.05" value="0.00" />
+          </div>
+          <div class="control-group-title">Force line</div>
+          <div class="label"><span>left/right drift v_lat</span><strong id="lateralOut">0.000 m/s</strong></div>
+          <input id="lateral" type="range" min="-0.25" max="0.25" step="0.005" value="0.000" />
+          <div class="force-line-tape" id="forceLineTape" hidden>
+            <div class="force-line-tape-head">
+              <b id="forceLineTapeResult">IN</b>
+              <span id="forceLineTapeReadout">0.0 cm centered at rim</span>
+            </div>
+            <div class="force-line-track" aria-hidden="true">
+              <span class="edge left">edge</span>
+              <i class="force-line-marker" id="forceLineMarker"></i>
+              <span class="edge right">edge</span>
+            </div>
+            <p id="forceLineTapeExplain">Δx = v_lat · t_flight; constant lateral velocity, no restoring force.</p>
+          </div>
+          <div id="noisePresetRows" hidden>
+            <div class="whip-hint">Noise quick presets: skip slider fiddling and jump straight to landing-dot experiments.</div>
+            <div class="noise-presets">
+              <button class="noise-preset active" data-noise-preset="game" type="button">game pressure</button>
+              <button class="noise-preset" data-noise-preset="tight" type="button">clean lab</button>
+              <button class="noise-preset" data-noise-preset="fatigue" type="button">fatigue bloom</button>
+              <button class="noise-preset" data-noise-preset="left" type="button">force-line leak</button>
+            </div>
+          </div>
+          <div id="splRows" hidden>
+            <div class="whip-hint">SPL Open Data layer: compact 24-shot P0001 subset with real make/miss, landing x-y, and entry angle. Dots compare measured outcomes with the circular no-contact rim model.</div>
+            <button class="data-layer-toggle active" id="splLayerToggle" type="button">SPL real shots</button>
+          </div>
+          <div class="control-group-title">Court + noise</div>
+          <div class="label"><span>release height h</span><strong id="heightOut">2.20 m</strong></div>
+          <input id="height" type="range" min="1.80" max="2.55" step="0.01" value="2.20" />
+          <div class="label"><span>distance d</span><strong id="distanceOut">4.20 m</strong></div>
+          <input id="distance" type="range" min="3.30" max="7.25" step="0.01" value="4.20" />
+          <div class="label"><span>speed inconsistency σv</span><strong id="sigmaVOut">0.045 m/s</strong></div>
+          <input id="sigmaV" type="range" min="0.005" max="0.180" step="0.001" value="0.045" />
+          <div class="label"><span>angle inconsistency σθ</span><strong id="sigmaThetaOut">0.90°</strong></div>
+          <input id="sigmaTheta" type="range" min="0.05" max="4.00" step="0.05" value="0.90" />
+        </div>
+      </aside>
+
+      <header class="panel topbar">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div>
+            <h1>Shot Physics Lab</h1>
+            <p>interactive experiment bench · not a dashboard <span class="mobile-hint">· rotate/drag the court</span></p>
+          </div>
+        </div>
+        <div class="top-tools" aria-label="Presentation tools">
+          <button class="top-tool primary" id="presentationToggle" type="button" aria-pressed="false">Presentation mode</button>
+          <button class="top-tool" id="controlsJump" type="button">Controls</button>
+          <button class="top-tool" id="analysisJump" type="button">Analysis</button>
+        </div>
+        <div class="pill">EXACT core · MODEL-CONTINGENT noise</div>
+      </header>
+
+      <aside class="panel right" id="analysisPanel">
+        <div class="section takeaway-card" id="takeawayCard">
+          <span class="takeaway-kicker" id="takeawayKicker">teaching focus</span>
+          <h2 class="takeaway-title" id="takeawayTitle">Build speed from the body, then let physics judge the release.</h2>
+          <p class="takeaway-body" id="takeawayBody">Use the guided beats first; sliders are for controlled experiments after the story lands.</p>
+          <div class="takeaway-step" id="takeawayStep">Demo: hit Next beat → then compare the verdict and metric strip.</div>
+        </div>
+        <div class="section shot-verdict" id="shotVerdict" data-tone="make" data-reason="swish">
+          <div class="verdict-flag" id="verdictFlag">—</div>
+          <div class="verdict-body">
+            <span class="verdict-eyebrow" id="verdictEyebrow">this release</span>
+            <div class="verdict-headline" id="verdictHeadline">—</div>
+            <div class="verdict-hint" id="verdictHint">—</div>
+          </div>
+        </div>
+        <div class="section metrics" id="metrics">
+          <div class="metric good"><div class="k">P(make)</div><div class="v" id="pMake">—</div></div>
+          <div class="metric warn"><div class="k">θ* optimum</div><div class="v" id="thetaOpt">—</div></div>
+          <div class="metric"><div class="k">∂depth/∂v</div><div class="v" id="dvDepth">—</div></div>
+          <div class="metric"><div class="k">stiff axis</div><div class="v" id="stiffAxis">—</div></div>
+        </div>
+        <div class="section note">
+          <h2 id="stationTitle">Geometry Lab</h2>
+          <p id="stationNote">Change angle, speed, height, or distance. The orange arc is one shot; the glowing band is the make window. The point of the lab is to discover the constraint, not just read it.</p>
+          <div class="equation" id="equationBox">H − h = d tan θ − g d² / (2v² cos²θ)<br>θ* = 45° + ½ arctan((H−h)/d)</div>
+          <div class="form-feedback" id="formFeedback" hidden><b>Form feedback</b><span id="formFeedbackText">—</span></div>
+        </div>
+        <div class="section chart-wrap">
+          <canvas id="labCanvas"></canvas>
+          <canvas id="firewallChart" hidden></canvas>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="section">
+          <div class="source-strip">
+            <div class="source-card"><b>PPT spine</b>FAST · STRAIGHT · REPEATABLE · QM firewall</div>
+            <div class="source-card"><b>Open-source stack</b>Three.js + Chart.js + local physics core</div>
+            <div class="source-card"><b>Safety</b>Classic ball. Quantum math tool, not quantum basketball.</div>
+          </div>
+        </div>
+        <div class="section scope">
+          Scope: 2D sagittal flight in 3D space; lateral aim is visual jitter except in Force-Line. Backspin/Magnus is a labeled visual/toy force cue in Form + Forces, not injected into the projectile core. Drag/contact remain excluded in v0.
+        </div>
+      </aside>
+    </div>
+  </div>
+  <script>
+    window.__shotLabErrors = [];
+    window.addEventListener('error', (event) => {
+      window.__shotLabErrors.push({
+        type: 'error', message: event.message, filename: event.filename,
+        lineno: event.lineno, colno: event.colno,
+        stack: event.error && event.error.stack ? String(event.error.stack) : null,
+      });
+      if (event.message) console.error('[Shot Physics Lab captured error]', event.message, event.filename, event.lineno, event.colno, event.error?.stack || '');
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+      const reason = event.reason;
+      window.__shotLabErrors.push({
+        type: 'unhandledrejection',
+        message: reason && reason.message ? reason.message : String(reason),
+        stack: reason && reason.stack ? String(reason.stack) : null,
+      });
+      console.error('[Shot Physics Lab captured rejection]', reason);
+    });
+  </script>
+  <script type="module" src="./lab_app.mjs?v=claude-design-fallback-polish-1"></script>
+</body>
+</html>

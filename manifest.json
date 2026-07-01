@@ -1,0 +1,9 @@
+{
+  "name": "Shot Physics Lab",
+  "short_name": "Shot Lab",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#10140f",
+  "theme_color": "#10140f",
+  "description": "Mobile-ready basketball shot physics lab fallback."
+}
